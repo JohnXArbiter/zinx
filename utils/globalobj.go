@@ -38,7 +38,7 @@ func init() {
 	}
 
 	// 应该尝试从conf/zinx.json去加载自定义的参数
-	GlobalObject.Reload()
+	//GlobalObject.Reload()
 }
 
 func (g *GlobalObj) Reload() {
