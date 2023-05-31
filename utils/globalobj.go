@@ -19,22 +19,26 @@ type GlobalObj struct {
 	Name      string          // 当前服务器的名称
 
 	// Zinx
-	Version        string // 当前Zinx的版本号
-	MaxConn        int    //当前服务器主机允许的最大链接数
-	MaxPackageSize uint32 // 当前Zinx数据包的最大值
+	Version          string // 当前Zinx的版本号
+	MaxConn          int    // 当前服务器主机允许的最大链接数
+	MaxPackageSize   uint32 // 当前Zinx数据包的最大值
+	WorkerPoolSize   uint32 // 当前业务工作Worker池的goroutine数量
+	MaxWorkerTaskLen uint32 // 允许用户最多开辟多少个Worker
 }
 
 // 提供一个init函数，初始化当前的GlobalObject
 func init() {
 	// 如果配置文件没有加载，这是默认的值
 	GlobalObject = &GlobalObj{
-		TcpServer:      nil,
-		Host:           "0.0.0.0",
-		TcpPort:        8999,
-		Name:           "ZinxServerApp",
-		Version:        "V0.4",
-		MaxConn:        1000,
-		MaxPackageSize: 4092,
+		TcpServer:        nil,
+		Host:             "0.0.0.0",
+		TcpPort:          8999,
+		Name:             "ZinxServerApp",
+		Version:          "V0.4",
+		MaxConn:          1000,
+		MaxPackageSize:   4092,
+		WorkerPoolSize:   10,   // worker工作池的队列的个数
+		MaxWorkerTaskLen: 1024, // 每个worker对应的消息队列的任务的数量的最大值
 	}
 
 	// 应该尝试从conf/zinx.json去加载自定义的参数

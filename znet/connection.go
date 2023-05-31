@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"zinx/utils"
 	"zinx/ziface"
 )
 
@@ -40,7 +41,7 @@ func (c *Connection) Start() {
 
 // StartReader 连接的读业务方法
 func (c *Connection) StartReader() {
-	fmt.Println("Reader Goroutine is running...")
+	fmt.Println("[Reader Goroutine is running!]")
 	defer fmt.Println("connID = ", c.ConnID, " Reader is exit, remote addr is ", c.RemoteAddr().String())
 	defer c.Stop()
 	for {
@@ -75,8 +76,13 @@ func (c *Connection) StartReader() {
 			conn: c,
 			msg:  msg,
 		}
-		// 从路由中，找到注册绑定的Conn对应的router调用
-		go c.MsgHandler.DoMsgHandler(req)
+		if utils.GlobalObject.WorkerPoolSize > 0 {
+			// 已经开启了工作池机制，将消息发送给worker工作池即可
+			c.MsgHandler.SendMsg2TaskQueue(req)
+		} else {
+			// 从路由中，找到注册绑定的Conn对应的router调用
+			go c.MsgHandler.DoMsgHandler(req)
+		}
 	}
 }
 

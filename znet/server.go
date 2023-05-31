@@ -19,12 +19,15 @@ type Server struct {
 func (s *Server) Start() {
 	fmt.Printf("[Zinx] Server Name: %s, listenner at IP: %s, Port: %d is starting",
 		utils.GlobalObject.Name, utils.GlobalObject.Host, utils.GlobalObject.TcpPort)
-	fmt.Printf("[Zinx] Version %s, MaxConn: %d, MaxPackeetSize: %d\n",
+	fmt.Printf("[Zinx] Version %s, MaxConn: %d, MaxPackageSize: %d\n",
 		utils.GlobalObject.Version,
 		utils.GlobalObject.MaxConn,
 		utils.GlobalObject.MaxPackageSize)
 
 	go func() {
+		// 0 开启workerPool
+		s.MsgHandler.StartWorkerPool()
+
 		// 1 获取一个TCP的Addr func ResolveTCPAddr(network string, address string) (*TCPAddr, error)
 		addr, err := net.ResolveTCPAddr(s.IPVersion, s.IP+":"+strconv.FormatInt(int64(s.Port), 10))
 		if err != nil {
