@@ -78,8 +78,8 @@ func (mh *MsgHandler) StartOneWork(workerId int) {
 func (mh *MsgHandler) SendMsg2TaskQueue(request ziface.IRequest) {
 	// 1 将消息平均分给不通过的worker
 	// 1.1 根据客户端的链接id来进行分配（同一个链接的request全都会在这个队列里）
-	workerId := request.GetConnection().GetConnID() % mh.WorkerPoolSize
-	fmt.Println("Add ConnId = ", request.GetConnection().GetConnID(),
+	workerId := request.GetConnection().GetConnId() % mh.WorkerPoolSize
+	fmt.Println("Add ConnId = ", request.GetConnection().GetConnId(),
 		" request MsgId = ", request.GetMsgId(),
 		" to WorkerId = ", workerId)
 	// 2 将消息发送给对应的worker的TaskQueue即可

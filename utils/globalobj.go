@@ -13,10 +13,10 @@ var GlobalObject *GlobalObj
 一些参数是可以通过zinx.json由使用人员进行配置
 */
 type GlobalObj struct {
-	TcpServer ziface.IService // 当前Zinx全局的Server对象
-	Host      string          // 当前服务器主机监听的IP
-	TcpPort   int             // 当前服务器主机监听的端口号
-	Name      string          // 当前服务器的名称
+	TcpServer ziface.IServer // 当前Zinx全局的Server对象
+	Host      string         // 当前服务器主机监听的IP
+	TcpPort   int            // 当前服务器主机监听的端口号
+	Name      string         // 当前服务器的名称
 
 	// Zinx
 	Version          string // 当前Zinx的版本号

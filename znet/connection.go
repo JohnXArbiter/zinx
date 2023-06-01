@@ -5,44 +5,55 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"sync"
 	"zinx/utils"
 	"zinx/ziface"
 )
 
 // Connection 连接模块
 type Connection struct {
-	Conn       *net.TCPConn       // 当前连接的socket TCP套接字
-	ConnID     uint32             // 连接的ID
-	isClosed   bool               // 当前的连接状态
-	ExitChan   chan struct{}      // Reader告诉Writer去退出 channel
-	msgChan    chan []byte        // 无缓冲管道，用于读、写goroutine之间的消息通信
-	MsgHandler ziface.IMsgHandler // 消息的管理MsgID和对应的处理业务API关系
+	TcpServer    ziface.IServer         // 当前connection属于哪个server
+	Conn         *net.TCPConn           // 当前连接的socket TCP套接字
+	ConnId       uint32                 // 连接的ID
+	isClosed     bool                   // 当前的连接状态
+	ExitChan     chan struct{}          // Reader告诉Writer去退出 channel
+	msgChan      chan []byte            // 无缓冲管道，用于读、写goroutine之间的消息通信
+	MsgHandler   ziface.IMsgHandler     // 消息的管理MsgID和对应的处理业务API关系
+	property     map[string]interface{} // 链接的属性集合
+	propertyLock sync.RWMutex           // 保护链接属性的锁
 }
 
 // NewConnection 初始化连接模块的方法
-func NewConnection(conn *net.TCPConn, connID uint32, msgHandler ziface.IMsgHandler) *Connection {
-	return &Connection{
+func NewConnection(server ziface.IServer, conn *net.TCPConn, connID uint32, msgHandler ziface.IMsgHandler) *Connection {
+	c := &Connection{
+		TcpServer:  server,
 		Conn:       conn,
-		ConnID:     connID,
+		ConnId:     connID,
 		MsgHandler: msgHandler,
 		isClosed:   false,
 		ExitChan:   make(chan struct{}, 1),
+		property:   make(map[string]interface{}),
 	}
+	// 将conn加入到ConnManager中
+	c.TcpServer.GetConnMgr().Add(c)
+	return c
 }
 
 // Start 启动连接，让当前的连接准备开始工作
 func (c *Connection) Start() {
-	fmt.Println("Conn Start()... ConnID = ", c.ConnID)
+	fmt.Println("Conn Start()... ConnId = ", c.ConnId)
 	// 启动从当前连接的读数据业务
 	go c.StartReader()
 	// 启动从当前连接的写数据业务
 	go c.StartWriter()
+	// 调用Start后的hook
+	c.TcpServer.CallOnConnStart(c)
 }
 
 // StartReader 连接的读业务方法
 func (c *Connection) StartReader() {
 	fmt.Println("[Reader Goroutine is running!]")
-	defer fmt.Println("connID = ", c.ConnID, " Reader is exit, remote addr is ", c.RemoteAddr().String())
+	defer fmt.Println("connID = ", c.ConnId, " Reader is exit, remote addr is ", c.RemoteAddr().String())
 	defer c.Stop()
 	for {
 		// 创建一个拆包解包对象
@@ -107,16 +118,20 @@ func (c *Connection) StartWriter() {
 
 // Stop 停止连接，结束当前连接的工作
 func (c *Connection) Stop() {
-	fmt.Println("Conn Stop()... ConnID = ", c.ConnID)
+	fmt.Println("Conn Stop()... ConnId = ", c.ConnId)
 	// 如果当前连接已经关闭
 	if c.isClosed == true {
 		return
 	}
 	c.isClosed = true
+	// 调用stop前的hook
+	c.TcpServer.CallOnConnStop(c)
 	// 关闭socket连接
 	c.Conn.Close()
 	// 告知Writer关闭
 	c.ExitChan <- struct{}{}
+	// 将当前链接充ConnMgr中删除
+	c.TcpServer.GetConnMgr().Remove(c.GetConnId())
 	close(c.ExitChan)
 	close(c.msgChan)
 }
@@ -126,9 +141,9 @@ func (c *Connection) GetTCPConnection() *net.TCPConn {
 	return c.Conn
 }
 
-// GetConnID 获取当前连接模块的连接ID
-func (c *Connection) GetConnID() uint32 {
-	return c.ConnID
+// GetConnId 获取当前连接模块的连接ID
+func (c *Connection) GetConnId() uint32 {
+	return c.ConnId
 }
 
 // RemoteAddr 获取远程客户端的 TCP状态 IP port
@@ -159,4 +174,30 @@ func NewMsgPackage(id uint32, data []byte) *Message {
 		DataLen: uint32(len(data)),
 		Data:    data,
 	}
+}
+
+// SetProperty 设置链接属性
+func (c *Connection) SetProperty(key string, value interface{}) {
+	c.propertyLock.Lock()
+	defer c.propertyLock.Unlock()
+	// 添加一个属性
+	c.property[key] = value
+}
+
+// GetProperty 获取链接属性
+func (c *Connection) GetProperty(key string) (interface{}, error) {
+	c.propertyLock.RLock()
+	defer c.propertyLock.RUnlock()
+	if value, ok := c.property[key]; ok {
+		return value, nil
+	}
+	return nil, errors.New("no property found")
+}
+
+// RemoveProperty 移除链接属性
+func (c *Connection) RemoveProperty(key string) {
+	c.propertyLock.Lock()
+	defer c.propertyLock.Unlock()
+	// 删除属性
+	delete(c.property, key)
 }
